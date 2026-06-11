@@ -1,2 +1,5 @@
 .history/*
 *.pyc
+.env
+dviz-env38/
+123
