@@ -1,7 +1,10 @@
+from scipy import io
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import requests
+import io
 
 
 def create_scatterplot(df, x_col, y_col, title, xlabel, ylabel):
@@ -61,3 +64,46 @@ def load_data_from_google_drive(url):
     url_processed='https://drive.google.com/uc?id=' + url.split('/')[-2]
     df = pd.read_csv(url_processed)
     return df
+
+
+
+# ── 1. Add time features to both datasets ────────────────────────────────────
+def add_time_features(df, pickup_col):
+    df = df.copy()
+    df['pickup_dt']   = pd.to_datetime(df[pickup_col])
+    df['hour']        = df['pickup_dt'].dt.hour
+    df['day_of_week'] = df['pickup_dt'].dt.day_name()
+    df['month']       = df['pickup_dt'].dt.month_name()
+    df['date']        = df['pickup_dt'].dt.date
+    return df
+
+
+
+# 1) Build daily series with continuous calendar (fills missing dates with 0 rides)
+def get_daily_rides(df, pickup_col, start='2022-01-01', end='2023-12-31'):
+    tmp = df.copy()
+    tmp['ds'] = pd.to_datetime(tmp[pickup_col]).dt.tz_localize(None).dt.floor('D')
+    tmp = tmp[(tmp['ds'] >= start) & (tmp['ds'] <= end)]
+
+    daily = tmp.groupby('ds').size().rename('y').to_frame()
+    full_idx = pd.date_range(start=start, end=end, freq='D')
+    daily = daily.reindex(full_idx, fill_value=0).reset_index()
+    daily.columns = ['ds', 'y']
+
+    # Prophet expects numeric target
+    daily['y'] = daily['y'].astype(float)
+    return daily
+
+
+# Dark themed function to give a consistent look to a couple of plots
+def apply_dark_theme(fig, ax):
+    fig.patch.set_facecolor('#0d0d1a')
+    ax.set_facecolor('#0d0d1a')
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_color('#333355')
+    ax.spines['bottom'].set_color('#333355')
+    ax.tick_params(colors='#ccccdd')
+    ax.xaxis.label.set_color('#ccccdd')
+    ax.yaxis.label.set_color('#ccccdd')
+    ax.title.set_color('white')
