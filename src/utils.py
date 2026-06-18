@@ -3,7 +3,6 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from keplergl import KeplerGl
 import requests
 import io
 
@@ -67,20 +66,6 @@ def load_data_from_google_drive(url):
     return df
 
 
-def clean_taxi_data(df):
-    mask = (
-        (df['trip_distance'] > 0) &
-        (df['trip_distance'] <= 50) &
-        (df['fare_amount'] > 0) &
-        (df['fare_amount'] <= 100) &
-        (df['passenger_count'] >= 1) &
-        (df['passenger_count'] <= 6)
-    )
-    cleaned = df[mask].copy()
-    print(f"Rows kept: {len(cleaned):,} / {len(df):,} ({len(cleaned)/len(df):.1%})")
-    return cleaned
-
-
 
 # ── 1. Add time features to both datasets ────────────────────────────────────
 def add_time_features(df, pickup_col):
@@ -93,15 +78,6 @@ def add_time_features(df, pickup_col):
     return df
 
 
-def download_parquet(url, headers):
-    """Download parquet file with proper headers and error handling."""
-    response = requests.get(url, headers=headers, timeout=60)
-    response.raise_for_status()
-    
-    if len(response.content) == 0:
-        raise ValueError(f"Empty file received from {url}")
-    
-    return pd.read_parquet(io.BytesIO(response.content))
 
 # 1) Build daily series with continuous calendar (fills missing dates with 0 rides)
 def get_daily_rides(df, pickup_col, start='2022-01-01', end='2023-12-31'):
