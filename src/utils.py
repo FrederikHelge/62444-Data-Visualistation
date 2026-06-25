@@ -60,14 +60,17 @@ def get_a_random_chunk_property(data):
     print(f"{property}:", object[property])
 
 
+# We load the data with this url function, but optimized it in case of SSL issues, which we ran into underway.
 def load_data_from_google_drive(url):
-    url_processed='https://drive.google.com/uc?id=' + url.split('/')[-2]
-    df = pd.read_csv(url_processed)
+    url_processed = 'https://drive.google.com/uc?id=' + url.split('/')[-2]
+    response = requests.get(url_processed, timeout=60)
+    response.raise_for_status()
+    df = pd.read_csv(io.BytesIO(response.content))
     return df
 
 
 
-# ── 1. Add time features to both datasets ────────────────────────────────────
+# Add time features to datasets for temporal analysis and forecasting.
 def add_time_features(df, pickup_col):
     df = df.copy()
     df['pickup_dt']   = pd.to_datetime(df[pickup_col])
@@ -78,8 +81,7 @@ def add_time_features(df, pickup_col):
     return df
 
 
-
-# 1) Build daily series with continuous calendar (fills missing dates with 0 rides)
+# Build daily series with continuous calendar (fills missing dates with 0 rides)
 def get_daily_rides(df, pickup_col, start='2022-01-01', end='2023-12-31'):
     tmp = df.copy()
     tmp['ds'] = pd.to_datetime(tmp[pickup_col]).dt.tz_localize(None).dt.floor('D')
@@ -107,3 +109,23 @@ def apply_dark_theme(fig, ax):
     ax.xaxis.label.set_color('#ccccdd')
     ax.yaxis.label.set_color('#ccccdd')
     ax.title.set_color('white')
+    
+    
+# We clean our data multiple times in the notebook, so we put the cleaning steps in a function to avoid code repetition.
+def clean_taxi_data(df):
+    # Downcast to reduce memory pressure on large datasets.
+    for col in ['trip_distance', 'fare_amount', 'passenger_count']:
+        df[col] = pd.to_numeric(df[col], errors='coerce', downcast='float')
+
+    mask = (
+        (df['trip_distance'] > 0) &
+        (df['trip_distance'] <= 50) &
+        (df['fare_amount'] > 0) &
+        (df['fare_amount'] <= 100) &
+        (df['passenger_count'] >= 1) &
+        (df['passenger_count'] <= 6)
+    )
+
+    cleaned = df.loc[mask]
+    print(f"Rows kept: {len(cleaned):,} / {len(df):,} ({len(cleaned)/len(df):.1%})")
+    return cleaned.reset_index(drop=True)
